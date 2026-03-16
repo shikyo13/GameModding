@@ -43,6 +43,53 @@ Key elements of a BepInEx plugin:
 - `ConfigEntry<T>` for user-configurable settings
 - Logger for debug output
 
+### 2b. UserMod2 Plugin Generation (ONI and KMod-based games)
+
+For games using Klei's mod loading pipeline (ONI, potentially other Klei games):
+
+**Key differences from BepInEx:**
+- Entry point: `KMod.UserMod2` subclass (not `BaseUnityPlugin`)
+- Patching: `base.OnLoad(harmony)` calls `PatchAll()` automatically
+- Config: PLib `SingletonOptions<T>` (not BepInEx ConfigEntry)
+- Logging: `PUtil.LogDebug/Warning/Error` (not BepInEx Logger)
+- No BepInEx installation needed — game has built-in mod loading
+
+**Template:**
+```csharp
+using HarmonyLib;
+using KMod;
+using PeterHan.PLib.Core;
+using PeterHan.PLib.Options;
+
+namespace ModName
+{
+    public class ModNameMod : UserMod2
+    {
+        public override void OnLoad(Harmony harmony)
+        {
+            PUtil.InitLibrary();
+            new POptions().RegisterOptions(this, typeof(ModNameOptions));
+            base.OnLoad(harmony); // applies all [HarmonyPatch] classes
+        }
+    }
+}
+```
+
+**mod_info.yaml:**
+```yaml
+supportedContent: ALL
+minimumSupportedBuild: 469112
+version: 1.0.0
+APIVersion: 2
+```
+
+**Framework auto-detection:**
+When generating a mod, check the project context:
+1. If project has `mod_info.yaml` or references `KMod` → use UserMod2 template
+2. If project has `BepInEx` references or `doorstop_config.ini` → use BepInEx template
+3. If game is Unity but no framework detected → recommend BepInEx
+4. If game is non-Unity → check engine-specific framework
+
 ### 3. Harmony Patch Generation
 
 For precise method hooking in .NET/Unity games:

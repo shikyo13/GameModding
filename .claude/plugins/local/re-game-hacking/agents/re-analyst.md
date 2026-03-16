@@ -69,13 +69,37 @@ For Unity games using IL2CPP:
 3. Search with `re-orchestrator:search_il2cpp_dump` for specific classes/methods
 4. Cross-reference dump offsets with Ghidra addresses for full decompilation
 
-### 6. .NET / Mono Games
+### 6. .NET / Mono Games (Primary Workflow for Unity Mono)
 
-For Unity Mono or other .NET games:
+For Unity Mono or other .NET games, managed DLLs give you source-level decompilation — this is your fastest path.
 
-1. `re-orchestrator:list_dotnet_assemblies` — find managed DLLs
-2. `re-orchestrator:inspect_assembly` — decompile specific assemblies
-3. This often gives you source-level code without needing Ghidra
+**Step-by-step workflow:**
+
+1. `re-orchestrator:list_dotnet_assemblies` — find all managed DLLs in the game's Managed folder
+2. `re-orchestrator:inspect_assembly` on `Assembly-CSharp.dll` — get metadata, framework, type count
+3. `re-orchestrator:get_dotnet_assembly_refs` — understand dependency graph
+4. `re-orchestrator:enumerate_dotnet_types` — list all types, identify key namespaces
+5. `re-orchestrator:search_dotnet_assembly` with gameplay keywords — find relevant types
+6. `re-orchestrator:enumerate_dotnet_methods` on target type — get method signatures
+7. `re-orchestrator:enumerate_dotnet_fields` on target type — get field layouts
+8. `re-orchestrator:disassemble_dotnet_method` — get full C# decompilation of specific methods
+
+**CLI alternative (ilspycmd):**
+- List types: `ilspycmd "Assembly-CSharp.dll" -l -r "ManagedDir"`
+- Decompile type: `ilspycmd "Assembly-CSharp.dll" -t TypeName -r "ManagedDir"`
+- Use `\\` path separators on Windows
+
+**When to escalate to Ghidra:**
+- Native plugins (C++ DLLs loaded by the game)
+- IL2CPP builds (use IL2CPP workflow instead)
+- Obfuscated assemblies where decompilation fails
+- Need to trace into Unity engine internals (UnityEngine.dll is native)
+
+**Common .NET game patterns:**
+- MonoBehaviour subclasses: game logic attached to GameObjects
+- ScriptableObject subclasses: data definitions (items, recipes, configs)
+- Static managers: singletons holding global state
+- Serialization attributes: `[SerializeField]`, `[Serialize]`, `[SerializationConfig]`
 
 ### 7. Saving Findings
 
