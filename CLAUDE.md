@@ -36,6 +36,7 @@ Multi-game modding workspace with shared RE toolkit. Engine-specific docs at thi
 | Full workflow recipe | docs/toolkit/workflows.md |
 | MCP server setup/issues | docs/toolkit/mcp-servers.md |
 | Helper scripts | docs/toolkit/commands.md |
+| Publishing/monetization | docs/monetization.md |
 | Working on a specific game | <GameFolder>/CLAUDE.md |
 
 ## Game Folders
