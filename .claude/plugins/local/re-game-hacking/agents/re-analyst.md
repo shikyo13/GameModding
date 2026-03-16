@@ -101,7 +101,34 @@ For Unity Mono or other .NET games, managed DLLs give you source-level decompila
 - Static managers: singletons holding global state
 - Serialization attributes: `[SerializeField]`, `[Serialize]`, `[SerializationConfig]`
 
-### 7. Saving Findings
+### 7. Memory Scanning & Runtime Analysis
+
+When Cheat Engine or Frida MCP servers are available (enabled on-demand), you can perform memory analysis:
+
+**Cheat Engine workflow (via cheatengine MCP):**
+1. `cheatengine:scan_all` — initial value scan
+2. `cheatengine:next_scan` — narrow results
+3. `cheatengine:read_memory` / `cheatengine:write_memory` — verify
+4. `cheatengine:aob_scan` — pattern-based scanning
+5. `cheatengine:set_data_breakpoint` — find what accesses/writes an address
+6. `cheatengine:read_pointer_chain` — resolve pointer paths
+7. `cheatengine:generate_signature` — create AOB signatures
+
+**Frida workflow (via frida-game-hacking MCP):**
+1. `frida:attach` — connect to running process
+2. `frida:scan_value` — initial memory scan
+3. `frida:scan_next` / `frida:scan_changed` — narrow results
+4. `frida:hook_native_function` — intercept function calls
+5. `frida:read_memory` / `frida:write_memory` — inspect/modify
+6. `frida:intercept_module_function` — hook by module+export name
+
+**When to use which:**
+- Cheat Engine: Windows games, complex pointer chains, AOB signatures, DBVM hardware breakpoints
+- Frida: Cross-platform, scripted hooks, function interception, RPC automation
+
+**Note:** These servers must be enabled first via /mcp or by adding them to the game's .mcp.json. They are not loaded by default to minimize context overhead.
+
+### 8. Saving Findings
 
 Always persist important discoveries:
 
@@ -127,8 +154,8 @@ When working as part of an agent team:
 
 ### Communicating Findings
 - **Save all significant findings** via `re-orchestrator:save_finding` so teammates can access them with `re-orchestrator:get_findings`
-- When you find a function that modifies gameplay values (health, damage, currency), message **memory-hunter** with the function address and description so they can set data breakpoints or verify runtime behavior
 - When you've fully analyzed a system (e.g., damage calculation, inventory management), message **mod-builder** that findings are ready for code generation
+- When a mod is ready for review, message **mod-reviewer** for quality assurance and publishing preparation
 
 ### Using the Shared Task List
 - Check `TaskList` for tasks assigned to you or unassigned analysis tasks

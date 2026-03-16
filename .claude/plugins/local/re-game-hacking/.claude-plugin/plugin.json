@@ -7,7 +7,7 @@
   },
   "agents": [
     "./agents/re-analyst.md",
-    "./agents/memory-hunter.md",
+    "./agents/mod-reviewer.md",
     "./agents/mod-builder.md",
     "./agents/asset-explorer.md"
   ],
