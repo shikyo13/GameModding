@@ -8,13 +8,17 @@
   "agents": [
     "./agents/re-analyst.md",
     "./agents/memory-hunter.md",
-    "./agents/mod-builder.md"
+    "./agents/mod-builder.md",
+    "./agents/asset-explorer.md"
   ],
   "skills": [
     "./skills/analyze-assembly",
     "./skills/find-value",
     "./skills/trace-to-code",
     "./skills/generate-mod",
-    "./skills/new-project"
+    "./skills/new-project",
+    "./skills/compare-assemblies",
+    "./skills/dump-type",
+    "./skills/find-hooks"
   ]
 }
