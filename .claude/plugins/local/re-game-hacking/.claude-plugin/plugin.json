@@ -1,14 +1,14 @@
 {
   "name": "re-game-hacking",
-  "version": "2.0.0",
-  "description": "Reverse engineering agents for game hacking: binary analysis, memory hunting, and mod generation. Designed for solo use or as an agent team.",
+  "version": "3.0.0",
+  "description": "Game modding toolkit: reverse engineering, mod generation, quality review, and publishing. Engine-aware agents and skills for building income-grade mods.",
   "author": {
     "name": "Zero"
   },
   "agents": [
     "./agents/re-analyst.md",
-    "./agents/mod-reviewer.md",
     "./agents/mod-builder.md",
+    "./agents/mod-reviewer.md",
     "./agents/asset-explorer.md"
   ],
   "skills": [
@@ -16,9 +16,12 @@
     "./skills/find-value",
     "./skills/trace-to-code",
     "./skills/generate-mod",
-    "./skills/new-project",
+    "./skills/new-game",
     "./skills/compare-assemblies",
     "./skills/dump-type",
-    "./skills/find-hooks"
+    "./skills/find-hooks",
+    "./skills/new-mod",
+    "./skills/release",
+    "./skills/workshop-prep"
   ]
 }
