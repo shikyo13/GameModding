@@ -2,27 +2,32 @@
   "mcpServers": {
     "cheatengine": {
       "command": "C:/Python313/python.exe",
-      "args": ["D:/AI/MCP Servers/cheatengine-mcp-bridge/MCP_Server/mcp_cheatengine.py"]
+      "args": ["D:/AI/MCP Servers/cheatengine-mcp-bridge/MCP_Server/mcp_cheatengine.py"],
+      "disabled": true
     },
     "ghidra": {
       "command": "C:/Users/Zero/re-mcp-toolkit/venv/Scripts/python.exe",
       "args": [
         "C:/Users/Zero/re-mcp-toolkit/GhidraMCP/bridge_mcp_ghidra.py",
         "--ghidra-server", "http://127.0.0.1:8080/"
-      ]
+      ],
+      "disabled": true
     },
     "frida-game-hacking": {
       "command": "C:/Users/Zero/re-mcp-toolkit/venv/Scripts/python.exe",
       "args": ["-m", "frida_game_hacking_mcp"],
-      "cwd": "C:/Users/Zero/re-mcp-toolkit"
+      "cwd": "C:/Users/Zero/re-mcp-toolkit",
+      "disabled": true
     },
     "x64dbg": {
       "command": "C:/Users/Zero/re-mcp-toolkit/venv/Scripts/python.exe",
-      "args": ["C:/Users/Zero/re-mcp-toolkit/x64dbgMCP/src/x64dbg.py"]
+      "args": ["C:/Users/Zero/re-mcp-toolkit/x64dbgMCP/src/x64dbg.py"],
+      "disabled": true
     },
     "re-orchestrator": {
       "command": "C:/Users/Zero/re-mcp-toolkit/venv/Scripts/python.exe",
-      "args": ["C:/Users/Zero/re-mcp-toolkit/orchestrator/run_server.py"]
+      "args": ["C:/Users/Zero/re-mcp-toolkit/orchestrator/run_server.py"],
+      "disabled": true
     }
   }
 }
