@@ -1,0 +1,9 @@
+# Game mod projects (independent git repos) — wildcard catches future additions
+*Mods/
+
+# OS / IDE
+.vs/
+*.suo
+*.user
+Thumbs.db
+Desktop.ini
