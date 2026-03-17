@@ -2,7 +2,7 @@ name: Update Stats Dashboard
 
 on:
   schedule:
-    - cron: '*/30 * * * *'
+    - cron: '*/8 * * * *'
   workflow_dispatch:
 
 permissions:
