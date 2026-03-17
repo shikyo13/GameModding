@@ -188,16 +188,32 @@ jobs:
         run: |
           WS_JSON=$(cat /tmp/ws.json 2>/dev/null || echo '[]')
           NX_JSON=$(cat /tmp/nx.json 2>/dev/null || echo '[]')
+          NOW=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+
+          # Load existing history or start fresh
+          if [ -f docs/stats/data.json ]; then
+            EXISTING_HISTORY=$(cat docs/stats/data.json | jq -c '.history // []')
+          else
+            EXISTING_HISTORY="[]"
+          fi
+
+          # Build current snapshot for history
+          SNAPSHOT="{\"t\":\"$NOW\",\"w\":$WS_JSON,\"n\":$NX_JSON}"
+
+          # Append to history, keep last 180 entries (~1 day at 8min intervals)
+          HISTORY=$(echo "$EXISTING_HISTORY" | jq -c --argjson snap "$SNAPSHOT" '. + [$snap] | .[-180:]')
 
           cat > docs/stats/data.json << JSONEOF
           {
-            "updated": "$(date -u '+%Y-%m-%dT%H:%M:%SZ')",
+            "updated": "$NOW",
             "workshop": $WS_JSON,
-            "nexus": $NX_JSON
+            "nexus": $NX_JSON,
+            "history": $HISTORY
           }
           JSONEOF
 
-          cat docs/stats/data.json | jq .
+          ENTRIES=$(echo "$HISTORY" | jq 'length')
+          echo "data.json updated with $ENTRIES history entries"
 
       - name: Update Discord #mod-stats embed
         env:

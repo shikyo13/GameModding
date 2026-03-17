@@ -6,6 +6,7 @@
 <title>Zero's Mods - Stats Dashboard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Outfit:wght@300;500;700;900&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 <style>
   :root {
     --bg: #0a0a0f;
@@ -44,9 +45,7 @@
     max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem;
   }
 
-  header {
-    text-align: center; margin-bottom: 3rem;
-  }
+  header { text-align: center; margin-bottom: 3rem; }
 
   header h1 {
     font-size: 2.8rem; font-weight: 900;
@@ -55,9 +54,7 @@
     letter-spacing: -1px;
   }
 
-  header p {
-    color: var(--dim); font-size: 1.1rem; margin-top: 0.5rem;
-  }
+  header p { color: var(--dim); font-size: 1.1rem; margin-top: 0.5rem; }
 
   .links {
     display: flex; gap: 1rem; justify-content: center; margin-top: 1rem; flex-wrap: wrap;
@@ -76,9 +73,7 @@
     display: flex; align-items: center; gap: 0.6rem;
   }
 
-  .section-title .dot {
-    width: 8px; height: 8px; border-radius: 50%;
-  }
+  .section-title .dot { width: 8px; height: 8px; border-radius: 50%; }
 
   .grid {
     display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -133,6 +128,21 @@
   .val-blue { color: var(--blue); }
   .val-orange { color: var(--orange); }
 
+  .card-chart {
+    margin-top: 1rem;
+    padding: 0.5rem;
+    background: var(--surface2);
+    border-radius: 8px;
+    height: 120px;
+  }
+
+  .card-chart canvas { width: 100% !important; height: 100% !important; }
+
+  .chart-empty {
+    display: flex; align-items: center; justify-content: center;
+    height: 100%; color: var(--dim); font-size: 0.75rem;
+  }
+
   .totals {
     display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem;
     margin-bottom: 2rem;
@@ -146,9 +156,7 @@
   .total-card .stat-value { font-size: 2rem; }
   .total-card .stat-label { font-size: 0.85rem; }
 
-  #loading {
-    text-align: center; padding: 4rem; color: var(--dim);
-  }
+  #loading { text-align: center; padding: 4rem; color: var(--dim); }
 
   .spinner {
     width: 32px; height: 32px; margin: 0 auto 1rem;
@@ -164,16 +172,12 @@
     font-family: 'JetBrains Mono', monospace;
   }
 
-  footer {
-    text-align: center; padding: 2rem; color: var(--dim); font-size: 0.8rem;
-  }
-
+  footer { text-align: center; padding: 2rem; color: var(--dim); font-size: 0.8rem; }
   footer a { color: var(--accent); text-decoration: none; }
 
   @media (max-width: 600px) {
     header h1 { font-size: 1.8rem; }
     .totals { grid-template-columns: repeat(2, 1fr); }
-    .stats-row { grid-template-columns: repeat(3, 1fr); }
   }
 </style>
 </head>
@@ -210,7 +214,6 @@
     </div>
     <div class="grid" id="nexus-grid"></div>
 
-
     <div class="updated" id="updated"></div>
   </div>
 </div>
@@ -225,6 +228,11 @@
 </footer>
 
 <script>
+const COLORS = {
+  green: '#00b894', gold: '#fdcb6e', blue: '#74b9ff', orange: '#e17055',
+  accent: '#6c5ce7', dim: '#7a7a8a'
+};
+
 const GAME_TAGS = {
   oni: { label: 'ONI', class: 'tag-oni' },
   zomboid: { label: 'Zomboid', class: 'tag-zomboid' },
@@ -241,7 +249,10 @@ function tagFor(game) {
   return `<span class="game-tag ${t.class}">${t.label}</span>`;
 }
 
+let chartCounter = 0;
+
 function workshopCard(mod) {
+  const cid = `chart-ws-${chartCounter++}`;
   return `
     <div class="card">
       <div class="card-header">
@@ -253,10 +264,12 @@ function workshopCard(mod) {
         <div class="stat"><div class="stat-value val-gold">${num(mod.favorites)}</div><div class="stat-label">Favorites</div></div>
         <div class="stat"><div class="stat-value val-blue">${num(mod.views)}</div><div class="stat-label">Views</div></div>
       </div>
+      <div class="card-chart" id="${cid}" data-mod-id="${mod.id}" data-platform="steam"></div>
     </div>`;
 }
 
 function nexusCard(mod) {
+  const cid = `chart-nx-${chartCounter++}`;
   return `
     <div class="card">
       <div class="card-header">
@@ -268,7 +281,131 @@ function nexusCard(mod) {
         <div class="stat"><div class="stat-value val-gold">${num(mod.endorsements)}</div><div class="stat-label">Endorsements</div></div>
         <div class="stat"><div class="stat-value val-dim">${mod.version || '?'}</div><div class="stat-label">Version</div></div>
       </div>
+      <div class="card-chart" id="${cid}" data-mod-id="${mod.id}" data-platform="nexus"></div>
     </div>`;
+}
+
+function makeGradient(ctx, color) {
+  const g = ctx.createLinearGradient(0, 0, 0, 120);
+  g.addColorStop(0, color + '40');
+  g.addColorStop(1, color + '05');
+  return g;
+}
+
+function renderChart(containerId, labels, datasets) {
+  const container = document.getElementById(containerId);
+  if (!labels.length || labels.length < 2) {
+    container.innerHTML = '<div class="chart-empty">Collecting data, charts appear after a few updates</div>';
+    return;
+  }
+
+  const canvas = document.createElement('canvas');
+  container.appendChild(canvas);
+  const ctx = canvas.getContext('2d');
+
+  new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: {
+          display: datasets.length > 1,
+          position: 'top',
+          labels: { color: COLORS.dim, font: { size: 10, family: 'Outfit' }, boxWidth: 8, padding: 8 }
+        },
+        tooltip: {
+          backgroundColor: '#1a1a26',
+          borderColor: '#2a2a3a',
+          borderWidth: 1,
+          titleFont: { family: 'Outfit', size: 11 },
+          bodyFont: { family: 'JetBrains Mono', size: 11 },
+          titleColor: '#e0e0ea',
+          bodyColor: '#e0e0ea',
+          padding: 8,
+          displayColors: true,
+          boxWidth: 8,
+        }
+      },
+      scales: {
+        x: {
+          display: true,
+          grid: { color: 'rgba(42,42,58,0.3)' },
+          ticks: {
+            color: COLORS.dim, font: { size: 9, family: 'JetBrains Mono' },
+            maxTicksLimit: 6,
+            callback: function(val) {
+              const d = new Date(this.getLabelForValue(val));
+              return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            }
+          }
+        },
+        y: {
+          display: true,
+          grid: { color: 'rgba(42,42,58,0.3)' },
+          ticks: { color: COLORS.dim, font: { size: 9, family: 'JetBrains Mono' }, maxTicksLimit: 4 }
+        }
+      },
+      elements: {
+        point: { radius: 0, hoverRadius: 4 },
+        line: { tension: 0.3, borderWidth: 2 }
+      }
+    }
+  });
+}
+
+function buildCharts(history) {
+  document.querySelectorAll('.card-chart').forEach(container => {
+    const modId = container.dataset.modId;
+    const platform = container.dataset.platform;
+
+    const labels = [];
+    const seriesMap = {};
+
+    history.forEach(snap => {
+      labels.push(snap.t);
+      const mods = platform === 'steam' ? (snap.w || []) : (snap.n || []);
+      const mod = mods.find(m => m.id === modId);
+      if (mod) {
+        if (platform === 'steam') {
+          if (!seriesMap.Subscribers) seriesMap.Subscribers = [];
+          if (!seriesMap.Favorites) seriesMap.Favorites = [];
+          seriesMap.Subscribers.push(mod.subscribers);
+          seriesMap.Favorites.push(mod.favorites);
+        } else {
+          if (!seriesMap.Downloads) seriesMap.Downloads = [];
+          if (!seriesMap.Endorsements) seriesMap.Endorsements = [];
+          seriesMap.Downloads.push(mod.unique_downloads);
+          seriesMap.Endorsements.push(mod.endorsements);
+        }
+      }
+    });
+
+    const colorMap = {
+      Subscribers: COLORS.green,
+      Favorites: COLORS.gold,
+      Downloads: COLORS.orange,
+      Endorsements: COLORS.gold,
+    };
+
+    const datasets = Object.entries(seriesMap).map(([label, data]) => {
+      const color = colorMap[label] || COLORS.accent;
+      return {
+        label,
+        data,
+        borderColor: color,
+        backgroundColor: (ctx) => {
+          if (!ctx.chart?.ctx) return color + '20';
+          return makeGradient(ctx.chart.ctx, color);
+        },
+        fill: true,
+      };
+    });
+
+    renderChart(container.id, labels, datasets);
+  });
 }
 
 async function init() {
@@ -283,7 +420,7 @@ async function init() {
 
   const ws = data.workshop || [];
   const nx = data.nexus || [];
-  const gh = data.github || {};
+  const history = data.history || [];
 
   let totalSubs = 0, totalFavs = 0, totalViews = 0, totalDL = 0;
   ws.forEach(m => { totalSubs += m.subscribers; totalFavs += m.favorites; totalViews += m.views; });
@@ -299,8 +436,14 @@ async function init() {
   document.getElementById('workshop-grid').innerHTML = ws.map(workshopCard).join('');
   document.getElementById('nexus-grid').innerHTML = nx.map(nexusCard).join('');
 
+  // Render charts from history
+  buildCharts(history);
+
   const updated = data.updated ? new Date(data.updated).toLocaleString() : 'unknown';
-  document.getElementById('updated').textContent = `Data from: ${updated} (updates every 30 min)`;
+  const historyHours = history.length > 1
+    ? ((new Date(history[history.length-1].t) - new Date(history[0].t)) / 3600000).toFixed(1)
+    : '0';
+  document.getElementById('updated').textContent = `Data from: ${updated} (updates every 8 min, ${history.length} data points over ${historyHours}h)`;
   document.getElementById('loading').style.display = 'none';
   document.getElementById('content').style.display = 'block';
 }
