@@ -1,0 +1,96 @@
+name: Update Stats Dashboard
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+jobs:
+  update-stats:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch all stats and generate data.json
+        env:
+          NEXUS_API_KEY: ${{ secrets.NEXUS_API_KEY }}
+        run: |
+          # Steam Workshop mods: id:name:game
+          WORKSHOP_MODS=(
+            "3682732647:Duplicant Status Bar:oni"
+            "3667874678:Barricade Context Menu:zomboid"
+            "3402208866:Barricades Hurt Zombies:zomboid"
+          )
+
+          # Nexus Mods: game_domain:mod_id:name
+          NEXUS_MODS=(
+            "subnautica:3046:CameraStalkerGuard"
+            "subnautica:3047:Power Saver"
+            "subnautica:3050:Beacon Color Picker"
+          )
+
+          echo "Fetching Steam Workshop stats..."
+          WS_JSON="["
+          for entry in "${WORKSHOP_MODS[@]}"; do
+            IFS=':' read -r file_id mod_name game <<< "$entry"
+            RESP=$(curl -s -X POST \
+              -d "itemcount=1&publishedfileids[0]=$file_id" \
+              "https://api.steampowered.com/ISteamRemoteStorage/GetPublishedFileDetails/v1/")
+
+            SUBS=$(echo "$RESP" | jq -r '.response.publishedfiledetails[0].subscriptions // 0')
+            FAVS=$(echo "$RESP" | jq -r '.response.publishedfiledetails[0].favorited // 0')
+            VIEWS=$(echo "$RESP" | jq -r '.response.publishedfiledetails[0].views // 0')
+            echo "  $mod_name: $SUBS subs, $FAVS favs, $VIEWS views"
+
+            WS_JSON="$WS_JSON{\"id\":\"$file_id\",\"name\":\"$mod_name\",\"game\":\"$game\",\"platform\":\"steam\",\"subscribers\":$SUBS,\"favorites\":$FAVS,\"views\":$VIEWS},"
+          done
+          WS_JSON="${WS_JSON%,}]"
+
+          echo "Fetching Nexus Mods stats..."
+          NX_JSON="["
+          if [ -n "$NEXUS_API_KEY" ]; then
+            for entry in "${NEXUS_MODS[@]}"; do
+              IFS=':' read -r domain mod_id mod_name <<< "$entry"
+              RESP=$(curl -s -H "apikey: $NEXUS_API_KEY" \
+                "https://api.nexusmods.com/v1/games/$domain/mods/$mod_id.json")
+
+              DOWNLOADS=$(echo "$RESP" | jq -r '.mod_downloads // 0')
+              UNIQUE_DL=$(echo "$RESP" | jq -r '.mod_unique_downloads // 0')
+              ENDORSEMENTS=$(echo "$RESP" | jq -r '.endorsement_count // 0')
+              VERSION=$(echo "$RESP" | jq -r '.version // "?"')
+              echo "  $mod_name: $UNIQUE_DL unique DL, $ENDORSEMENTS endorsements"
+
+              NX_JSON="$NX_JSON{\"id\":\"$mod_id\",\"domain\":\"$domain\",\"name\":\"$mod_name\",\"game\":\"$domain\",\"platform\":\"nexus\",\"downloads\":$DOWNLOADS,\"unique_downloads\":$UNIQUE_DL,\"endorsements\":$ENDORSEMENTS,\"version\":\"$VERSION\"},"
+              sleep 0.5
+            done
+          fi
+          NX_JSON="${NX_JSON%,}]"
+
+          echo "Fetching GitHub stats..."
+          GH_RESP=$(curl -s "https://api.github.com/repos/shikyo13/ONIMods")
+          GH_STARS=$(echo "$GH_RESP" | jq -r '.stargazers_count // 0')
+          GH_FORKS=$(echo "$GH_RESP" | jq -r '.forks_count // 0')
+          GH_ISSUES=$(echo "$GH_RESP" | jq -r '.open_issues_count // 0')
+
+          cat > docs/stats/data.json << JSONEOF
+          {
+            "updated": "$(date -u '+%Y-%m-%dT%H:%M:%SZ')",
+            "workshop": $WS_JSON,
+            "nexus": $NX_JSON,
+            "github": {
+              "stars": $GH_STARS,
+              "forks": $GH_FORKS,
+              "issues": $GH_ISSUES
+            }
+          }
+          JSONEOF
+
+          # Pretty print for verification
+          cat docs/stats/data.json | jq .
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/stats/data.json
+          git diff --cached --quiet || (git commit -m "Update stats data [skip ci]" && git push)
