@@ -449,6 +449,8 @@ async function init() {
 }
 
 init();
+// Auto-refresh every 8 minutes to match workflow
+setInterval(() => location.reload(), 8 * 60 * 1000);
 </script>
 </body>
 </html>
