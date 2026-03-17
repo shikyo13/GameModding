@@ -37,6 +37,7 @@ Multi-game modding workspace with shared RE toolkit. Engine-specific docs at thi
 | MCP server setup/issues | docs/toolkit/mcp-servers.md |
 | Helper scripts | docs/toolkit/commands.md |
 | Publishing/monetization | docs/monetization.md |
+| Managing Discord server | DiscordManager/CLAUDE.md |
 | Working on a specific game | <GameFolder>/CLAUDE.md |
 
 ## Game Folders
@@ -50,6 +51,7 @@ Multi-game modding workspace with shared RE toolkit. Engine-specific docs at thi
 | StardewMods/ | Stardew Valley | .NET (SMAPI) |
 | SubnauticaMods/ | Subnautica | Unity (Mono) |
 | ZomboidMods/ | Project Zomboid | Java (Lua modding) |
+| DiscordManager/ | Zero's Mods Discord server | Discord MCP + GitHub Actions |
 
 ## Conventions
 

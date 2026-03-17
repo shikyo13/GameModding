@@ -4,6 +4,17 @@
 # Backup
 _backup/
 
+# MCP config (contains tokens)
+.mcp.json
+
+# Discord webhook URLs and tokens
+DiscordManager/docs/webhooks.md
+DiscordManager/docs/mcp-patches.md
+DiscordManager/scripts/
+
+# Superpowers plugin (local)
+superpowers/
+
 # OS / IDE
 .vs/
 *.suo
