@@ -303,6 +303,34 @@ function renderChart(containerId, labels, datasets) {
   container.appendChild(canvas);
   const ctx = canvas.getContext('2d');
 
+  // Assign each dataset its own Y axis so different scales don't crush smaller values
+  const scalesCfg = {
+    x: {
+      display: true,
+      grid: { color: 'rgba(42,42,58,0.3)' },
+      ticks: {
+        color: COLORS.dim, font: { size: 9, family: 'JetBrains Mono' },
+        maxTicksLimit: 6,
+        callback: function(val) {
+          const d = new Date(this.getLabelForValue(val));
+          return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+      }
+    }
+  };
+
+  datasets.forEach((ds, i) => {
+    const axisId = i === 0 ? 'y' : 'y' + i;
+    ds.yAxisID = axisId;
+    scalesCfg[axisId] = {
+      display: i === 0, // only show left axis to keep it clean
+      position: i === 0 ? 'left' : 'right',
+      grid: { drawOnChartArea: i === 0, color: 'rgba(42,42,58,0.3)' },
+      ticks: { color: ds.borderColor, font: { size: 9, family: 'JetBrains Mono' }, maxTicksLimit: 4 },
+      beginAtZero: true,
+    };
+  });
+
   new Chart(ctx, {
     type: 'line',
     data: { labels, datasets },
@@ -329,25 +357,7 @@ function renderChart(containerId, labels, datasets) {
           boxWidth: 8,
         }
       },
-      scales: {
-        x: {
-          display: true,
-          grid: { color: 'rgba(42,42,58,0.3)' },
-          ticks: {
-            color: COLORS.dim, font: { size: 9, family: 'JetBrains Mono' },
-            maxTicksLimit: 6,
-            callback: function(val) {
-              const d = new Date(this.getLabelForValue(val));
-              return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            }
-          }
-        },
-        y: {
-          display: true,
-          grid: { color: 'rgba(42,42,58,0.3)' },
-          ticks: { color: COLORS.dim, font: { size: 9, family: 'JetBrains Mono' }, maxTicksLimit: 4 }
-        }
-      },
+      scales: scalesCfg,
       elements: {
         point: { radius: 0, hoverRadius: 4 },
         line: { tension: 0.3, borderWidth: 2 }
