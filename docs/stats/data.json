@@ -1,0 +1,10 @@
+{
+  "updated": "2026-03-17T02:07:41Z",
+  "workshop": [{"id":"3682732647","name":"Duplicant Status Bar","game":"oni","platform":"steam","subscribers":1184,"favorites":79,"views":3322},{"id":"3667874678","name":"Barricade Context Menu","game":"zomboid","platform":"steam","subscribers":1750,"favorites":77,"views":3062},{"id":"3402208866","name":"Barricades Hurt Zombies","game":"zomboid","platform":"steam","subscribers":7349,"favorites":743,"views":26479}],
+  "nexus": [{"id":"3046","domain":"subnautica","name":"CameraStalkerGuard","game":"subnautica","platform":"nexus","downloads":459,"unique_downloads":427,"endorsements":7,"version":"1.0.0"},{"id":"3047","domain":"subnautica","name":"Power Saver","game":"subnautica","platform":"nexus","downloads":555,"unique_downloads":509,"endorsements":4,"version":"1.0.0"},{"id":"3050","domain":"subnautica","name":"Beacon Color Picker","game":"subnautica","platform":"nexus","downloads":440,"unique_downloads":377,"endorsements":9,"version":"1.0.1"}],
+  "github": {
+    "stars": 1,
+    "forks": 0,
+    "issues": 0
+  }
+}
