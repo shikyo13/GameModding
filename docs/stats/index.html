@@ -292,7 +292,7 @@ function makeGradient(ctx, color) {
   return g;
 }
 
-function renderChart(containerId, labels, datasets) {
+function renderChart(containerId, labels, datasets, dualAxis) {
   const container = document.getElementById(containerId);
   if (!labels.length || labels.length < 2) {
     container.innerHTML = '<div class="chart-empty">Collecting data, charts appear after a few updates</div>';
@@ -329,7 +329,7 @@ function renderChart(containerId, labels, datasets) {
           boxWidth: 8,
         }
       },
-      scales: {
+      scales: Object.assign({
         x: {
           display: true,
           grid: { color: 'rgba(42,42,58,0.3)' },
@@ -344,11 +344,20 @@ function renderChart(containerId, labels, datasets) {
         },
         y: {
           display: true,
+          position: 'left',
           grid: { color: 'rgba(42,42,58,0.3)' },
-          ticks: { color: COLORS.dim, font: { size: 9, family: 'JetBrains Mono' }, maxTicksLimit: 4 },
-          beginAtZero: false,
+          ticks: { color: datasets[0]?.borderColor || COLORS.dim, font: { size: 9, family: 'JetBrains Mono' }, maxTicksLimit: 4 },
+          beginAtZero: true,
         }
-      },
+      }, dualAxis ? {
+        y1: {
+          display: true,
+          position: 'right',
+          grid: { drawOnChartArea: false },
+          ticks: { color: datasets[1]?.borderColor || COLORS.gold, font: { size: 9, family: 'JetBrains Mono' }, maxTicksLimit: 4 },
+          beginAtZero: true,
+        }
+      } : {}),
       elements: {
         point: { radius: 0, hoverRadius: 4 },
         line: { tension: 0.3, borderWidth: 2 }
@@ -372,10 +381,14 @@ function buildCharts(history) {
       if (mod) {
         if (platform === 'steam') {
           if (!seriesMap.Subscribers) seriesMap.Subscribers = [];
+          if (!seriesMap.Favorites) seriesMap.Favorites = [];
           seriesMap.Subscribers.push(mod.subscribers);
+          seriesMap.Favorites.push(mod.favorites);
         } else {
           if (!seriesMap.Downloads) seriesMap.Downloads = [];
+          if (!seriesMap.Endorsements) seriesMap.Endorsements = [];
           seriesMap.Downloads.push(mod.unique_downloads);
+          seriesMap.Endorsements.push(mod.endorsements);
         }
       }
     });
@@ -387,21 +400,20 @@ function buildCharts(history) {
       Endorsements: COLORS.gold,
     };
 
-    const datasets = Object.entries(seriesMap).map(([label, data]) => {
+    const entries = Object.entries(seriesMap);
+    const datasets = entries.map(([label, data], i) => {
       const color = colorMap[label] || COLORS.accent;
       return {
         label,
         data,
         borderColor: color,
-        backgroundColor: (ctx) => {
-          if (!ctx.chart?.ctx) return color + '20';
-          return makeGradient(ctx.chart.ctx, color);
-        },
-        fill: true,
+        backgroundColor: color + '20',
+        fill: false,
+        yAxisID: i === 0 ? 'y' : 'y1',
       };
     });
 
-    renderChart(container.id, labels, datasets);
+    renderChart(container.id, labels, datasets, entries.length > 1);
   });
 }
 
