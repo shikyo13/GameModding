@@ -186,7 +186,7 @@
     <div class="links">
       <a href="https://steamcommunity.com/id/ahunt/myworkshopfiles/">Steam Workshop</a>
       <a href="https://www.nexusmods.com/profile/Zer0TheAbs0lute/mods">Nexus Mods</a>
-      <a href="https://github.com/shikyo13/ONIMods">GitHub</a>
+      <a href="https://github.com/shikyo13">GitHub</a>
       <a href="https://buymeacoffee.com/zerotheabsolute">Support</a>
     </div>
   </header>
@@ -209,17 +209,15 @@
     </div>
     <div class="grid" id="nexus-grid"></div>
 
-    <div class="section-title" style="margin-top:2rem">
-      <span class="dot" style="background:var(--accent)"></span> GitHub
-    </div>
-    <div class="grid" id="github-grid"></div>
 
     <div class="updated" id="updated"></div>
   </div>
 </div>
 
 <footer>
-  <a href="https://github.com/shikyo13/ONIMods">shikyo13/ONIMods</a> |
+  <a href="https://github.com/shikyo13">GitHub</a> |
+  <a href="https://steamcommunity.com/id/ahunt/myworkshopfiles/">Steam Workshop</a> |
+  <a href="https://www.nexusmods.com/profile/Zer0TheAbs0lute/mods">Nexus Mods</a> |
   <a href="https://buymeacoffee.com/zerotheabsolute">Buy Me a Coffee</a> |
   <a href="https://www.patreon.com/cw/ZeroTheAbsolute/membership">Patreon</a>
 </footer>
@@ -298,19 +296,6 @@ async function init() {
 
   document.getElementById('workshop-grid').innerHTML = ws.map(workshopCard).join('');
   document.getElementById('nexus-grid').innerHTML = nx.map(nexusCard).join('');
-
-  document.getElementById('github-grid').innerHTML = `
-    <div class="card">
-      <div class="card-header">
-        <h3>shikyo13/ONIMods</h3>
-        <span class="game-tag" style="background:rgba(116,185,255,0.15);color:#74b9ff">GitHub</span>
-      </div>
-      <div class="stats-row">
-        <div class="stat"><div class="stat-value val-orange">${num(gh.stars)}</div><div class="stat-label">Stars</div></div>
-        <div class="stat"><div class="stat-value val-blue">${num(gh.forks)}</div><div class="stat-label">Forks</div></div>
-        <div class="stat"><div class="stat-value val-green">${num(gh.issues)}</div><div class="stat-label">Issues</div></div>
-      </div>
-    </div>`;
 
   const updated = data.updated ? new Date(data.updated).toLocaleString() : 'unknown';
   document.getElementById('updated').textContent = `Data from: ${updated} (updates every 30 min)`;
