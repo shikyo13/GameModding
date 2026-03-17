@@ -411,7 +411,8 @@ function buildCharts(history) {
 async function init() {
   let data;
   try {
-    const resp = await fetch('data.json?' + Date.now());
+    // Fetch from GitHub raw to bypass Pages CDN cache
+    const resp = await fetch('https://raw.githubusercontent.com/shikyo13/GameModding/master/docs/stats/data.json?' + Date.now());
     data = await resp.json();
   } catch (e) {
     document.getElementById('loading').innerHTML = 'Failed to load stats data. Waiting for first GitHub Actions run.';
