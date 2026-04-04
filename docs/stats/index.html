@@ -103,6 +103,8 @@
   .tag-oni { background: rgba(78,205,196,0.15); color: #4ecdc4; }
   .tag-zomboid { background: rgba(142,68,173,0.15); color: #8e44ad; }
   .tag-subnautica { background: rgba(247,220,111,0.15); color: #f7dc6f; }
+  .tag-subnauticabelowzero { background: rgba(72,219,251,0.15); color: #48dbfb; }
+  .tag-minecraft { background: rgba(92,184,92,0.15); color: #5cb85c; }
 
   .stats-row {
     display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.8rem;
@@ -190,6 +192,7 @@
     <div class="links">
       <a href="https://steamcommunity.com/id/ahunt/myworkshopfiles/">Steam Workshop</a>
       <a href="https://www.nexusmods.com/profile/Zer0TheAbs0lute/mods">Nexus Mods</a>
+      <a href="https://modrinth.com/user/ZeroTheAbsolute">Modrinth</a>
       <a href="https://github.com/shikyo13">GitHub</a>
       <a href="https://discord.gg/NrdXnbWzGC">Discord</a>
       <a href="https://zeronexus.net/mods.php">ZeroNexus</a>
@@ -215,6 +218,11 @@
     </div>
     <div class="grid" id="nexus-grid"></div>
 
+    <div class="section-title" style="margin-top:2rem">
+      <span class="dot" style="background:#5cb85c"></span> Modrinth
+    </div>
+    <div class="grid" id="modrinth-grid"></div>
+
     <div class="updated" id="updated"></div>
   </div>
 </div>
@@ -224,6 +232,7 @@
   <a href="https://discord.gg/NrdXnbWzGC">Discord</a> |
   <a href="https://steamcommunity.com/id/ahunt/myworkshopfiles/">Steam Workshop</a> |
   <a href="https://www.nexusmods.com/profile/Zer0TheAbs0lute/mods">Nexus Mods</a> |
+  <a href="https://modrinth.com/user/ZeroTheAbsolute">Modrinth</a> |
   <a href="https://buymeacoffee.com/zerotheabsolute">Buy Me a Coffee</a> |
   <a href="https://www.patreon.com/cw/ZeroTheAbsolute/membership">Patreon</a>
 </footer>
@@ -238,7 +247,8 @@ const GAME_TAGS = {
   oni: { label: 'ONI', class: 'tag-oni' },
   zomboid: { label: 'Zomboid', class: 'tag-zomboid' },
   subnautica: { label: 'Subnautica', class: 'tag-subnautica' },
-  minecraft: { label: 'Minecraft', class: '' },
+  subnauticabelowzero: { label: 'Below Zero', class: 'tag-subnauticabelowzero' },
+  minecraft: { label: 'Minecraft', class: 'tag-minecraft' },
   rimworld: { label: 'RimWorld', class: '' },
   factorio: { label: 'Factorio', class: '' },
 };
@@ -283,6 +293,23 @@ function nexusCard(mod) {
         <div class="stat"><div class="stat-value val-dim">${mod.version || '?'}</div><div class="stat-label">Version</div></div>
       </div>
       <div class="card-chart" id="${cid}" data-mod-id="${mod.id}" data-platform="nexus"></div>
+    </div>`;
+}
+
+function modrinthCard(mod) {
+  const cid = `chart-mr-${chartCounter++}`;
+  return `
+    <div class="card">
+      <div class="card-header">
+        <h3>${mod.name}</h3>
+        ${tagFor(mod.game)}
+      </div>
+      <div class="stats-row">
+        <div class="stat"><div class="stat-value val-green">${num(mod.downloads)}</div><div class="stat-label">Downloads</div></div>
+        <div class="stat"><div class="stat-value val-gold">${num(mod.followers)}</div><div class="stat-label">Followers</div></div>
+        <div class="stat"><div class="stat-value val-dim">-</div><div class="stat-label"></div></div>
+      </div>
+      <div class="card-chart" id="${cid}" data-mod-id="${mod.id}" data-platform="modrinth"></div>
     </div>`;
 }
 
@@ -377,7 +404,7 @@ function buildCharts(history) {
 
     history.forEach(snap => {
       labels.push(snap.t);
-      const mods = platform === 'steam' ? (snap.w || []) : (snap.n || []);
+      const mods = platform === 'steam' ? (snap.w || []) : platform === 'modrinth' ? (snap.m || []) : (snap.n || []);
       const mod = mods.find(m => m.id === modId);
       if (mod) {
         if (platform === 'steam') {
@@ -385,6 +412,11 @@ function buildCharts(history) {
           if (!seriesMap.Favorites) seriesMap.Favorites = [];
           seriesMap.Subscribers.push(mod.subscribers);
           seriesMap.Favorites.push(mod.favorites);
+        } else if (platform === 'modrinth') {
+          if (!seriesMap.Downloads) seriesMap.Downloads = [];
+          if (!seriesMap.Followers) seriesMap.Followers = [];
+          seriesMap.Downloads.push(mod.downloads);
+          seriesMap.Followers.push(mod.followers);
         } else {
           if (!seriesMap.Downloads) seriesMap.Downloads = [];
           if (!seriesMap.Endorsements) seriesMap.Endorsements = [];
@@ -399,6 +431,7 @@ function buildCharts(history) {
       Favorites: COLORS.gold,
       Downloads: COLORS.orange,
       Endorsements: COLORS.gold,
+      Followers: COLORS.gold,
     };
 
     const entries = Object.entries(seriesMap);
@@ -433,21 +466,24 @@ async function init() {
 
   const ws = data.workshop || [];
   const nx = data.nexus || [];
+  const mr = data.modrinth || [];
   const history = data.history || [];
 
   let totalSubs = 0, totalFavs = 0, totalViews = 0, totalDL = 0;
   ws.forEach(m => { totalSubs += m.subscribers; totalFavs += m.favorites; totalViews += m.views; });
   nx.forEach(m => { totalDL += m.unique_downloads; });
+  mr.forEach(m => { totalDL += m.downloads; });
 
   document.getElementById('totals').innerHTML = `
     <div class="total-card"><div class="stat-value val-green">${num(totalSubs)}</div><div class="stat-label">Workshop Subscribers</div></div>
-    <div class="total-card"><div class="stat-value val-orange">${num(totalDL)}</div><div class="stat-label">Nexus Downloads</div></div>
+    <div class="total-card"><div class="stat-value val-orange">${num(totalDL)}</div><div class="stat-label">Total Downloads</div></div>
     <div class="total-card"><div class="stat-value val-gold">${num(totalFavs)}</div><div class="stat-label">Total Favorites</div></div>
     <div class="total-card"><div class="stat-value val-blue">${num(totalViews)}</div><div class="stat-label">Total Views</div></div>
   `;
 
   document.getElementById('workshop-grid').innerHTML = ws.map(workshopCard).join('');
   document.getElementById('nexus-grid').innerHTML = nx.map(nexusCard).join('');
+  document.getElementById('modrinth-grid').innerHTML = mr.length ? mr.map(modrinthCard).join('') : '<div style="color:var(--dim);font-size:0.9rem;padding:1rem">Collecting data, cards appear after first workflow run</div>';
 
   // Render charts from history
   buildCharts(history);

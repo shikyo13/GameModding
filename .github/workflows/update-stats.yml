@@ -124,6 +124,8 @@ jobs:
             "subnautica:3046:CameraStalkerGuard"
             "subnautica:3047:Power Saver"
             "subnautica:3050:Beacon Color Picker"
+            "subnauticabelowzero:638:Beacon Color Picker BZ"
+            "subnauticabelowzero:639:Power Saver BZ"
           )
 
           STATE=$(cat .monitor-state.json)
@@ -184,10 +186,62 @@ jobs:
           echo "$NX_JSON" > /tmp/nx.json
           echo "$STATE" > .monitor-state.json
 
+      - name: Fetch Modrinth stats
+        env:
+          DISCORD_WEBHOOK_STATS: ${{ secrets.DISCORD_WEBHOOK_STATS }}
+        run: |
+          MODRINTH_MODS=(
+            "dpXerb2j:QuickStack & Craft:minecraft"
+          )
+
+          STATE=$(cat .monitor-state.json)
+          MILESTONES=(10 25 50 100 250 500 1000 2500 5000 10000)
+          MR_JSON="["
+
+          for entry in "${MODRINTH_MODS[@]}"; do
+            IFS=':' read -r project_id mod_name game <<< "$entry"
+            echo "Checking Modrinth: $mod_name ($project_id)"
+
+            RESP=$(curl -s -H "User-Agent: ZeroModStats/1.0" \
+              "https://api.modrinth.com/v2/project/$project_id")
+
+            DOWNLOADS=$(echo "$RESP" | jq -r '.downloads // 0')
+            FOLLOWERS=$(echo "$RESP" | jq -r '.followers // 0')
+            UPDATED=$(echo "$RESP" | jq -r '.updated // ""')
+            SLUG=$(echo "$RESP" | jq -r '.slug // ""')
+            echo "  Downloads: $DOWNLOADS | Followers: $FOLLOWERS"
+
+            MR_JSON="$MR_JSON{\"id\":\"$project_id\",\"slug\":\"$SLUG\",\"name\":\"$mod_name\",\"game\":\"$game\",\"platform\":\"modrinth\",\"downloads\":$DOWNLOADS,\"followers\":$FOLLOWERS},"
+
+            # Download milestones
+            LAST_DMS=$(echo "$STATE" | jq -r ".milestones[\"mr_dl_${project_id}\"] // -1")
+            if [ "$LAST_DMS" = "-1" ]; then
+              SEED=0; for ms in "${MILESTONES[@]}"; do [ "$DOWNLOADS" -ge "$ms" ] && SEED=$ms; done
+              STATE=$(echo "$STATE" | jq ".milestones[\"mr_dl_${project_id}\"] = $SEED")
+            else
+              for ms in "${MILESTONES[@]}"; do
+                if [ "$DOWNLOADS" -ge "$ms" ] && [ "$LAST_DMS" -lt "$ms" ] && [ -n "$DISCORD_WEBHOOK_STATS" ]; then
+                  echo "MILESTONE: $mod_name $ms downloads on Modrinth"
+                  curl -s -H "Content-Type: application/json" \
+                    -d "{\"embeds\":[{\"title\":\"Milestone: $mod_name reached $ms downloads!\",\"color\":1941120,\"fields\":[{\"name\":\"Downloads\",\"value\":\"$DOWNLOADS\",\"inline\":true},{\"name\":\"Followers\",\"value\":\"$FOLLOWERS\",\"inline\":true}],\"url\":\"https://modrinth.com/mod/$SLUG\",\"footer\":{\"text\":\"Modrinth Milestone\"}}]}" \
+                    "$DISCORD_WEBHOOK_STATS"
+                  STATE=$(echo "$STATE" | jq ".milestones[\"mr_dl_${project_id}\"] = $ms")
+                fi
+              done
+            fi
+
+            sleep 0.5
+          done
+
+          MR_JSON="${MR_JSON%,}]"
+          echo "$MR_JSON" > /tmp/mr.json
+          echo "$STATE" > .monitor-state.json
+
       - name: Generate data.json for GitHub Pages
         run: |
           WS_JSON=$(cat /tmp/ws.json 2>/dev/null || echo '[]')
           NX_JSON=$(cat /tmp/nx.json 2>/dev/null || echo '[]')
+          MR_JSON=$(cat /tmp/mr.json 2>/dev/null || echo '[]')
           NOW=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
 
           # Load existing history or start fresh
@@ -198,7 +252,7 @@ jobs:
           fi
 
           # Build current snapshot for history
-          SNAPSHOT="{\"t\":\"$NOW\",\"w\":$WS_JSON,\"n\":$NX_JSON}"
+          SNAPSHOT="{\"t\":\"$NOW\",\"w\":$WS_JSON,\"n\":$NX_JSON,\"m\":$MR_JSON}"
 
           # Append to history, keep last 180 entries (~1 day at 8min intervals)
           HISTORY=$(echo "$EXISTING_HISTORY" | jq -c --argjson snap "$SNAPSHOT" '. + [$snap] | .[-180:]')
@@ -208,6 +262,7 @@ jobs:
             "updated": "$NOW",
             "workshop": $WS_JSON,
             "nexus": $NX_JSON,
+            "modrinth": $MR_JSON,
             "history": $HISTORY
           }
           JSONEOF
@@ -224,6 +279,7 @@ jobs:
           STATE=$(cat .monitor-state.json)
           WS_JSON=$(cat /tmp/ws.json 2>/dev/null || echo '[]')
           NX_JSON=$(cat /tmp/nx.json 2>/dev/null || echo '[]')
+          MR_JSON=$(cat /tmp/mr.json 2>/dev/null || echo '[]')
 
           # Build embed fields from workshop data
           FIELDS=""
@@ -246,6 +302,14 @@ jobs:
             TOTAL_DL=$((TOTAL_DL + DL))
             FIELDS="$FIELDS{\"name\":\"$NAME (Nexus)\",\"value\":\"Downloads: **$DL** | Endorsements: **$ENDORSE**\",\"inline\":false},"
           done < <(echo "$NX_JSON" | jq -c '.[]')
+
+          while IFS= read -r mod; do
+            NAME=$(echo "$mod" | jq -r '.name')
+            DL=$(echo "$mod" | jq -r '.downloads')
+            FOLLOWS=$(echo "$mod" | jq -r '.followers')
+            TOTAL_DL=$((TOTAL_DL + DL))
+            FIELDS="$FIELDS{\"name\":\"$NAME (Modrinth)\",\"value\":\"Downloads: **$DL** | Followers: **$FOLLOWS**\",\"inline\":false},"
+          done < <(echo "$MR_JSON" | jq -c '.[]')
 
           FIELDS="${FIELDS%,}"
 
