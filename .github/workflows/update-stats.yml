@@ -203,17 +203,20 @@ jobs:
             echo "Checking Modrinth: $mod_name ($project_id)"
 
             RESP=$(curl -s -H "User-Agent: ZeroModStats/1.0" \
-              "https://api.modrinth.com/v2/project/$project_id")
+              "https://api.modrinth.com/v2/project/$project_id" || echo '{}')
 
-            DOWNLOADS=$(echo "$RESP" | jq -r '.downloads // 0')
-            FOLLOWERS=$(echo "$RESP" | jq -r '.followers // 0')
-            UPDATED=$(echo "$RESP" | jq -r '.updated // ""')
-            SLUG=$(echo "$RESP" | jq -r '.slug // ""')
+            DOWNLOADS=$(echo "$RESP" | jq -r '.downloads // 0' 2>/dev/null || echo "0")
+            FOLLOWERS=$(echo "$RESP" | jq -r '.followers // 0' 2>/dev/null || echo "0")
+            UPDATED=$(echo "$RESP" | jq -r '.updated // ""' 2>/dev/null || echo "")
+            SLUG=$(echo "$RESP" | jq -r '.slug // ""' 2>/dev/null || echo "")
+            DOWNLOADS=${DOWNLOADS:-0}
+            FOLLOWERS=${FOLLOWERS:-0}
             echo "  Downloads: $DOWNLOADS | Followers: $FOLLOWERS"
 
             MR_JSON="$MR_JSON{\"id\":\"$project_id\",\"slug\":\"$SLUG\",\"name\":\"$mod_name\",\"game\":\"$game\",\"platform\":\"modrinth\",\"downloads\":$DOWNLOADS,\"followers\":$FOLLOWERS},"
 
-            # Download milestones
+            # Download milestones (skip if downloads is 0 or non-numeric)
+            if [ "$DOWNLOADS" -gt 0 ] 2>/dev/null; then
             LAST_DMS=$(echo "$STATE" | jq -r ".milestones[\"mr_dl_${project_id}\"] // -1")
             if [ "$LAST_DMS" = "-1" ]; then
               SEED=0; for ms in "${MILESTONES[@]}"; do [ "$DOWNLOADS" -ge "$ms" ] && SEED=$ms; done
@@ -228,6 +231,7 @@ jobs:
                   STATE=$(echo "$STATE" | jq ".milestones[\"mr_dl_${project_id}\"] = $ms")
                 fi
               done
+            fi
             fi
 
             sleep 0.5
