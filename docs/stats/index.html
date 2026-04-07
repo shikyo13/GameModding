@@ -157,7 +157,7 @@
   }
 
   .totals {
-    display: grid; grid-template-columns: repeat(5, 1fr); gap: 1rem;
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem;
     margin-bottom: 2rem;
   }
 
@@ -190,7 +190,7 @@
 
   @media (max-width: 600px) {
     header h1 { font-size: 1.8rem; }
-    .totals { grid-template-columns: repeat(3, 1fr); }
+    .totals { grid-template-columns: repeat(2, 1fr); }
   }
 </style>
 </head>
@@ -283,11 +283,10 @@ function workshopCard(mod) {
         <h3>${mod.name}</h3>
         ${tagFor(mod.game)}
       </div>
-      <div class="stats-row-4">
+      <div class="stats-row">
         <div class="stat"><div class="stat-value val-green">${num(mod.subscribers)}</div><div class="stat-label">Subscribers</div></div>
         <div class="stat"><div class="stat-value val-gold">${num(mod.favorites)}</div><div class="stat-label">Favorites</div></div>
-        <div class="stat"><div class="stat-value val-green">${num(mod.likes)}</div><div class="stat-label">Ratings</div></div>
-        <div class="stat"><div class="stat-value val-blue">${num(mod.views)}</div><div class="stat-label">Views</div></div>
+        <div class="stat"><div class="stat-value val-blue">${num(mod.likes)}</div><div class="stat-label">Ratings</div></div>
       </div>
       <div class="card-chart" id="${cid}" data-mod-id="${mod.id}" data-platform="steam"></div>
     </div>`;
@@ -497,18 +496,17 @@ async function init() {
   const cf = data.curseforge || [];
   const history = data.history || [];
 
-  let totalSubs = 0, totalFavs = 0, totalViews = 0, totalDL = 0, totalLikes = 0;
-  ws.forEach(m => { totalSubs += m.subscribers; totalFavs += m.favorites; totalViews += m.views; totalLikes += (m.likes || 0); });
+  let totalSubs = 0, totalFavs = 0, totalDL = 0, totalRatings = 0;
+  ws.forEach(m => { totalSubs += m.subscribers; totalFavs += m.favorites; totalRatings += (m.likes || 0); });
   nx.forEach(m => { totalDL += m.unique_downloads; });
   mr.forEach(m => { totalDL += m.downloads; });
-  cf.forEach(m => { totalDL += m.downloads; totalLikes += (m.thumbs_up || 0); });
+  cf.forEach(m => { totalDL += m.downloads; totalRatings += (m.thumbs_up || 0); });
 
   document.getElementById('totals').innerHTML = `
     <div class="total-card"><div class="stat-value val-green">${num(totalSubs)}</div><div class="stat-label">Workshop Subscribers</div></div>
     <div class="total-card"><div class="stat-value val-orange">${num(totalDL)}</div><div class="stat-label">Total Downloads</div></div>
     <div class="total-card"><div class="stat-value val-gold">${num(totalFavs)}</div><div class="stat-label">Total Favorites</div></div>
-    <div class="total-card"><div class="stat-value val-green">${num(totalLikes)}</div><div class="stat-label">Total Likes</div></div>
-    <div class="total-card"><div class="stat-value val-blue">${num(totalViews)}</div><div class="stat-label">Total Views</div></div>
+    <div class="total-card"><div class="stat-value val-blue">${num(totalRatings)}</div><div class="stat-label">Total Ratings</div></div>
   `;
 
   document.getElementById('workshop-grid').innerHTML = ws.map(workshopCard).join('');
