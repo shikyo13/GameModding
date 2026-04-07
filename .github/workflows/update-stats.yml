@@ -32,7 +32,6 @@ jobs:
         env:
           DISCORD_WEBHOOK_WORKSHOP: ${{ secrets.DISCORD_WEBHOOK_WORKSHOP }}
           DISCORD_WEBHOOK_STATS: ${{ secrets.DISCORD_WEBHOOK_STATS }}
-          STEAM_API_KEY: ${{ secrets.STEAM_API_KEY }}
         run: |
           WORKSHOP_IDS=(
             "3682732647:Duplicant Status Bar:oni"
@@ -51,24 +50,21 @@ jobs:
             IFS=':' read -r file_id mod_name game <<< "$entry"
             echo "Checking Workshop: $mod_name ($file_id)"
 
-            # Use authenticated endpoint for vote data if key available
-            if [ -n "$STEAM_API_KEY" ]; then
-              RESPONSE=$(curl -s "https://api.steampowered.com/IPublishedFileService/GetDetails/v1/?key=$STEAM_API_KEY&publishedfileids%5B0%5D=$file_id&includevotes=true")
-              DET='.response.publishedfiledetails[0]'
-            else
-              RESPONSE=$(curl -s -X POST \
-                -d "itemcount=1&publishedfileids[0]=$file_id" \
-                "https://api.steampowered.com/ISteamRemoteStorage/GetPublishedFileDetails/v1/")
-              DET='.response.publishedfiledetails[0]'
-            fi
+            RESPONSE=$(curl -s -X POST \
+              -d "itemcount=1&publishedfileids[0]=$file_id" \
+              "https://api.steampowered.com/ISteamRemoteStorage/GetPublishedFileDetails/v1/")
 
-            UPDATED=$(echo "$RESPONSE" | jq -r "$DET.time_updated // 0")
-            TITLE=$(echo "$RESPONSE" | jq -r "$DET.title // \"Unknown\"")
-            SUBS=$(echo "$RESPONSE" | jq -r "$DET.subscriptions // $DET.lifetime_subscriptions // 0")
-            FAVS=$(echo "$RESPONSE" | jq -r "$DET.favorited // $DET.lifetime_favorited // 0")
-            VIEWS=$(echo "$RESPONSE" | jq -r "$DET.views // 0")
-            LIKES=$(echo "$RESPONSE" | jq -r "$DET.vote_data.votes_up // 0")
-            echo "  Subs: $SUBS | Favs: $FAVS | Views: $VIEWS | Likes: $LIKES"
+            UPDATED=$(echo "$RESPONSE" | jq -r '.response.publishedfiledetails[0].time_updated // 0')
+            TITLE=$(echo "$RESPONSE" | jq -r '.response.publishedfiledetails[0].title // "Unknown"')
+            SUBS=$(echo "$RESPONSE" | jq -r '.response.publishedfiledetails[0].subscriptions // 0')
+            FAVS=$(echo "$RESPONSE" | jq -r '.response.publishedfiledetails[0].favorited // 0')
+            VIEWS=$(echo "$RESPONSE" | jq -r '.response.publishedfiledetails[0].views // 0')
+
+            # Scrape rating count from workshop page (not in API)
+            PAGE=$(curl -s "https://steamcommunity.com/sharedfiles/filedetails/?id=$file_id")
+            LIKES=$(echo "$PAGE" | grep -oP 'numRatings">\K\d+' || echo "0")
+            LIKES=${LIKES:-0}
+            echo "  Subs: $SUBS | Favs: $FAVS | Views: $VIEWS | Ratings: $LIKES"
 
             WS_JSON="$WS_JSON{\"id\":\"$file_id\",\"name\":\"$mod_name\",\"game\":\"$game\",\"platform\":\"steam\",\"subscribers\":$SUBS,\"favorites\":$FAVS,\"views\":$VIEWS,\"likes\":$LIKES},"
 
