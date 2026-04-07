@@ -110,6 +110,17 @@
     display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.8rem;
   }
 
+  .stats-row-4 {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.8rem;
+  }
+
+  .platform-breakdown {
+    margin-top: 0.6rem; padding: 0.4rem 0.6rem;
+    background: var(--surface2); border-radius: 6px;
+    font-size: 0.75rem; color: var(--dim);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
   .stat {
     text-align: center; padding: 0.8rem 0.4rem;
     background: var(--surface2); border-radius: 8px;
@@ -146,7 +157,7 @@
   }
 
   .totals {
-    display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem;
+    display: grid; grid-template-columns: repeat(5, 1fr); gap: 1rem;
     margin-bottom: 2rem;
   }
 
@@ -179,7 +190,7 @@
 
   @media (max-width: 600px) {
     header h1 { font-size: 1.8rem; }
-    .totals { grid-template-columns: repeat(2, 1fr); }
+    .totals { grid-template-columns: repeat(3, 1fr); }
   }
 </style>
 </head>
@@ -193,6 +204,7 @@
       <a href="https://steamcommunity.com/id/ahunt/myworkshopfiles/">Steam Workshop</a>
       <a href="https://www.nexusmods.com/profile/Zer0TheAbs0lute/mods">Nexus Mods</a>
       <a href="https://modrinth.com/user/ZeroTheAbsolute">Modrinth</a>
+      <a href="https://www.curseforge.com/members/zerotheabsolute/projects">CurseForge</a>
       <a href="https://github.com/shikyo13">GitHub</a>
       <a href="https://discord.gg/NrdXnbWzGC">Discord</a>
       <a href="https://zeronexus.net/mods.php">ZeroNexus</a>
@@ -219,9 +231,9 @@
     <div class="grid" id="nexus-grid"></div>
 
     <div class="section-title" style="margin-top:2rem">
-      <span class="dot" style="background:#5cb85c"></span> Modrinth
+      <span class="dot" style="background:#5cb85c"></span> Minecraft
     </div>
-    <div class="grid" id="modrinth-grid"></div>
+    <div class="grid" id="minecraft-grid"></div>
 
     <div class="updated" id="updated"></div>
   </div>
@@ -233,6 +245,7 @@
   <a href="https://steamcommunity.com/id/ahunt/myworkshopfiles/">Steam Workshop</a> |
   <a href="https://www.nexusmods.com/profile/Zer0TheAbs0lute/mods">Nexus Mods</a> |
   <a href="https://modrinth.com/user/ZeroTheAbsolute">Modrinth</a> |
+  <a href="https://www.curseforge.com/members/zerotheabsolute/projects">CurseForge</a> |
   <a href="https://buymeacoffee.com/zerotheabsolute">Buy Me a Coffee</a> |
   <a href="https://www.patreon.com/cw/ZeroTheAbsolute/membership">Patreon</a>
 </footer>
@@ -270,9 +283,10 @@ function workshopCard(mod) {
         <h3>${mod.name}</h3>
         ${tagFor(mod.game)}
       </div>
-      <div class="stats-row">
+      <div class="stats-row-4">
         <div class="stat"><div class="stat-value val-green">${num(mod.subscribers)}</div><div class="stat-label">Subscribers</div></div>
         <div class="stat"><div class="stat-value val-gold">${num(mod.favorites)}</div><div class="stat-label">Favorites</div></div>
+        <div class="stat"><div class="stat-value val-green">${num(mod.likes)}</div><div class="stat-label">Likes</div></div>
         <div class="stat"><div class="stat-value val-blue">${num(mod.views)}</div><div class="stat-label">Views</div></div>
       </div>
       <div class="card-chart" id="${cid}" data-mod-id="${mod.id}" data-platform="steam"></div>
@@ -296,20 +310,21 @@ function nexusCard(mod) {
     </div>`;
 }
 
-function modrinthCard(mod) {
-  const cid = `chart-mr-${chartCounter++}`;
+function minecraftCard(combined) {
+  const cid = `chart-mc-${chartCounter++}`;
   return `
     <div class="card">
       <div class="card-header">
-        <h3>${mod.name}</h3>
-        ${tagFor(mod.game)}
+        <h3>${combined.name}</h3>
+        ${tagFor(combined.game)}
       </div>
       <div class="stats-row">
-        <div class="stat"><div class="stat-value val-green">${num(mod.downloads)}</div><div class="stat-label">Downloads</div></div>
-        <div class="stat"><div class="stat-value val-gold">${num(mod.followers)}</div><div class="stat-label">Followers</div></div>
-        <div class="stat"><div class="stat-value val-dim">-</div><div class="stat-label"></div></div>
+        <div class="stat"><div class="stat-value val-orange">${num(combined.downloads)}</div><div class="stat-label">Downloads</div></div>
+        <div class="stat"><div class="stat-value val-gold">${num(combined.followers)}</div><div class="stat-label">Followers</div></div>
+        <div class="stat"><div class="stat-value val-green">${num(combined.thumbs_up)}</div><div class="stat-label">Likes</div></div>
       </div>
-      <div class="card-chart" id="${cid}" data-mod-id="${mod.id}" data-platform="modrinth"></div>
+      <div class="platform-breakdown">Modrinth: ${num(combined.mr_downloads)} | CurseForge: ${num(combined.cf_downloads)}</div>
+      <div class="card-chart" id="${cid}" data-mod-id="${combined.name}" data-platform="minecraft"></div>
     </div>`;
 }
 
@@ -404,24 +419,35 @@ function buildCharts(history) {
 
     history.forEach(snap => {
       labels.push(snap.t);
-      const mods = platform === 'steam' ? (snap.w || []) : platform === 'modrinth' ? (snap.m || []) : (snap.n || []);
-      const mod = mods.find(m => m.id === modId);
-      if (mod) {
-        if (platform === 'steam') {
-          if (!seriesMap.Subscribers) seriesMap.Subscribers = [];
-          if (!seriesMap.Favorites) seriesMap.Favorites = [];
-          seriesMap.Subscribers.push(mod.subscribers);
-          seriesMap.Favorites.push(mod.favorites);
-        } else if (platform === 'modrinth') {
-          if (!seriesMap.Downloads) seriesMap.Downloads = [];
-          if (!seriesMap.Followers) seriesMap.Followers = [];
-          seriesMap.Downloads.push(mod.downloads);
-          seriesMap.Followers.push(mod.followers);
-        } else {
-          if (!seriesMap.Downloads) seriesMap.Downloads = [];
-          if (!seriesMap.Endorsements) seriesMap.Endorsements = [];
-          seriesMap.Downloads.push(mod.unique_downloads);
-          seriesMap.Endorsements.push(mod.endorsements);
+      if (platform === 'minecraft') {
+        // Combined Modrinth + CurseForge downloads
+        const mrMods = snap.m || [];
+        const cfMods = snap.c || [];
+        const mrMod = mrMods.find(m => m.name === modId);
+        const cfMod = cfMods.find(m => m.name === modId);
+        const dl = (mrMod ? mrMod.downloads : 0) + (cfMod ? cfMod.downloads : 0);
+        if (!seriesMap.Downloads) seriesMap.Downloads = [];
+        seriesMap.Downloads.push(dl);
+      } else {
+        const mods = platform === 'steam' ? (snap.w || []) : platform === 'curseforge' ? (snap.c || []) : (snap.n || []);
+        const mod = mods.find(m => m.id === modId);
+        if (mod) {
+          if (platform === 'steam') {
+            if (!seriesMap.Subscribers) seriesMap.Subscribers = [];
+            if (!seriesMap.Favorites) seriesMap.Favorites = [];
+            seriesMap.Subscribers.push(mod.subscribers);
+            seriesMap.Favorites.push(mod.favorites);
+          } else if (platform === 'curseforge') {
+            if (!seriesMap.Downloads) seriesMap.Downloads = [];
+            if (!seriesMap.Likes) seriesMap.Likes = [];
+            seriesMap.Downloads.push(mod.downloads);
+            seriesMap.Likes.push(mod.thumbs_up || 0);
+          } else {
+            if (!seriesMap.Downloads) seriesMap.Downloads = [];
+            if (!seriesMap.Endorsements) seriesMap.Endorsements = [];
+            seriesMap.Downloads.push(mod.unique_downloads);
+            seriesMap.Endorsements.push(mod.endorsements);
+          }
         }
       }
     });
@@ -432,6 +458,7 @@ function buildCharts(history) {
       Downloads: COLORS.orange,
       Endorsements: COLORS.gold,
       Followers: COLORS.gold,
+      Likes: COLORS.green,
     };
 
     const entries = Object.entries(seriesMap);
@@ -467,23 +494,42 @@ async function init() {
   const ws = data.workshop || [];
   const nx = data.nexus || [];
   const mr = data.modrinth || [];
+  const cf = data.curseforge || [];
   const history = data.history || [];
 
-  let totalSubs = 0, totalFavs = 0, totalViews = 0, totalDL = 0;
-  ws.forEach(m => { totalSubs += m.subscribers; totalFavs += m.favorites; totalViews += m.views; });
+  let totalSubs = 0, totalFavs = 0, totalViews = 0, totalDL = 0, totalLikes = 0;
+  ws.forEach(m => { totalSubs += m.subscribers; totalFavs += m.favorites; totalViews += m.views; totalLikes += (m.likes || 0); });
   nx.forEach(m => { totalDL += m.unique_downloads; });
   mr.forEach(m => { totalDL += m.downloads; });
+  cf.forEach(m => { totalDL += m.downloads; totalLikes += (m.thumbs_up || 0); });
 
   document.getElementById('totals').innerHTML = `
     <div class="total-card"><div class="stat-value val-green">${num(totalSubs)}</div><div class="stat-label">Workshop Subscribers</div></div>
     <div class="total-card"><div class="stat-value val-orange">${num(totalDL)}</div><div class="stat-label">Total Downloads</div></div>
     <div class="total-card"><div class="stat-value val-gold">${num(totalFavs)}</div><div class="stat-label">Total Favorites</div></div>
+    <div class="total-card"><div class="stat-value val-green">${num(totalLikes)}</div><div class="stat-label">Total Likes</div></div>
     <div class="total-card"><div class="stat-value val-blue">${num(totalViews)}</div><div class="stat-label">Total Views</div></div>
   `;
 
   document.getElementById('workshop-grid').innerHTML = ws.map(workshopCard).join('');
   document.getElementById('nexus-grid').innerHTML = nx.map(nexusCard).join('');
-  document.getElementById('modrinth-grid').innerHTML = mr.length ? mr.map(modrinthCard).join('') : '<div style="color:var(--dim);font-size:0.9rem;padding:1rem">Collecting data, cards appear after first workflow run</div>';
+
+  // Build combined Minecraft cards from Modrinth + CurseForge
+  const mcMods = {};
+  mr.forEach(m => {
+    if (!mcMods[m.name]) mcMods[m.name] = { name: m.name, game: m.game, downloads: 0, mr_downloads: 0, cf_downloads: 0, followers: 0, thumbs_up: 0 };
+    mcMods[m.name].downloads += m.downloads;
+    mcMods[m.name].mr_downloads = m.downloads;
+    mcMods[m.name].followers = m.followers;
+  });
+  cf.forEach(m => {
+    if (!mcMods[m.name]) mcMods[m.name] = { name: m.name, game: m.game, downloads: 0, mr_downloads: 0, cf_downloads: 0, followers: 0, thumbs_up: 0 };
+    mcMods[m.name].downloads += m.downloads;
+    mcMods[m.name].cf_downloads = m.downloads;
+    mcMods[m.name].thumbs_up = m.thumbs_up || 0;
+  });
+  const mcList = Object.values(mcMods);
+  document.getElementById('minecraft-grid').innerHTML = mcList.length ? mcList.map(minecraftCard).join('') : '<div style="color:var(--dim);font-size:0.9rem;padding:1rem">Collecting data, cards appear after first workflow run</div>';
 
   // Render charts from history
   buildCharts(history);

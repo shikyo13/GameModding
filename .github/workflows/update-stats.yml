@@ -59,9 +59,10 @@ jobs:
             SUBS=$(echo "$RESPONSE" | jq -r '.response.publishedfiledetails[0].subscriptions // 0')
             FAVS=$(echo "$RESPONSE" | jq -r '.response.publishedfiledetails[0].favorited // 0')
             VIEWS=$(echo "$RESPONSE" | jq -r '.response.publishedfiledetails[0].views // 0')
-            echo "  Subs: $SUBS | Favs: $FAVS | Views: $VIEWS"
+            LIKES=$(echo "$RESPONSE" | jq -r '.response.publishedfiledetails[0].vote_data.votes_up // 0')
+            echo "  Subs: $SUBS | Favs: $FAVS | Views: $VIEWS | Likes: $LIKES"
 
-            WS_JSON="$WS_JSON{\"id\":\"$file_id\",\"name\":\"$mod_name\",\"game\":\"$game\",\"platform\":\"steam\",\"subscribers\":$SUBS,\"favorites\":$FAVS,\"views\":$VIEWS},"
+            WS_JSON="$WS_JSON{\"id\":\"$file_id\",\"name\":\"$mod_name\",\"game\":\"$game\",\"platform\":\"steam\",\"subscribers\":$SUBS,\"favorites\":$FAVS,\"views\":$VIEWS,\"likes\":$LIKES},"
 
             LAST_SEEN=$(echo "$STATE" | jq -r ".workshop[\"$file_id\"] // 0")
 
@@ -103,6 +104,23 @@ jobs:
                     -d "{\"embeds\":[{\"title\":\"Milestone: $mod_name reached $ms favorites!\",\"color\":16753920,\"fields\":[{\"name\":\"Favorites\",\"value\":\"$FAVS\",\"inline\":true},{\"name\":\"Subscribers\",\"value\":\"$SUBS\",\"inline\":true}],\"url\":\"https://steamcommunity.com/sharedfiles/filedetails/?id=$file_id\",\"footer\":{\"text\":\"Steam Workshop Milestone\"}}]}" \
                     "$DISCORD_WEBHOOK_STATS"
                   STATE=$(echo "$STATE" | jq ".milestones[\"favs_$file_id\"] = $ms")
+                fi
+              done
+            fi
+
+            # Likes milestones
+            LAST_LMS=$(echo "$STATE" | jq -r ".milestones[\"likes_$file_id\"] // -1")
+            if [ "$LAST_LMS" = "-1" ]; then
+              SEED=0; for ms in "${MILESTONES[@]}"; do [ "$LIKES" -ge "$ms" ] && SEED=$ms; done
+              STATE=$(echo "$STATE" | jq ".milestones[\"likes_$file_id\"] = $SEED")
+            else
+              for ms in "${MILESTONES[@]}"; do
+                if [ "$LIKES" -ge "$ms" ] && [ "$LAST_LMS" -lt "$ms" ] && [ -n "$DISCORD_WEBHOOK_STATS" ]; then
+                  echo "MILESTONE: $mod_name $ms likes"
+                  curl -s -H "Content-Type: application/json" \
+                    -d "{\"embeds\":[{\"title\":\"Milestone: $mod_name reached $ms likes!\",\"color\":5763719,\"fields\":[{\"name\":\"Likes\",\"value\":\"$LIKES\",\"inline\":true},{\"name\":\"Subscribers\",\"value\":\"$SUBS\",\"inline\":true}],\"url\":\"https://steamcommunity.com/sharedfiles/filedetails/?id=$file_id\",\"footer\":{\"text\":\"Steam Workshop Milestone\"}}]}" \
+                    "$DISCORD_WEBHOOK_STATS"
+                  STATE=$(echo "$STATE" | jq ".milestones[\"likes_$file_id\"] = $ms")
                 fi
               done
             fi
@@ -241,11 +259,69 @@ jobs:
           echo "$MR_JSON" > /tmp/mr.json
           echo "$STATE" > .monitor-state.json
 
+      - name: Fetch CurseForge stats
+        env:
+          CURSEFORGE_API_KEY: ${{ secrets.CURSEFORGE_API_KEY }}
+          DISCORD_WEBHOOK_STATS: ${{ secrets.DISCORD_WEBHOOK_STATS }}
+        run: |
+          CURSEFORGE_MODS=(
+            "1505147:QuickStack & Craft:minecraft"
+          )
+
+          STATE=$(cat .monitor-state.json)
+          MILESTONES=(10 25 50 100 250 500 1000 2500 5000 10000)
+          CF_JSON="["
+
+          if [ -n "$CURSEFORGE_API_KEY" ]; then
+            for entry in "${CURSEFORGE_MODS[@]}"; do
+              IFS=':' read -r mod_id mod_name game <<< "$entry"
+              echo "Checking CurseForge: $mod_name ($mod_id)"
+
+              RESP=$(curl -s -H "x-api-key: $CURSEFORGE_API_KEY" \
+                "https://api.curseforge.com/v1/mods/$mod_id" || echo '{}')
+
+              DOWNLOADS=$(echo "$RESP" | jq -r '.data.downloadCount // 0' 2>/dev/null || echo "0")
+              THUMBS_UP=$(echo "$RESP" | jq -r '.data.thumbsUpCount // 0' 2>/dev/null || echo "0")
+              SLUG=$(echo "$RESP" | jq -r '.data.slug // ""' 2>/dev/null || echo "")
+              DOWNLOADS=${DOWNLOADS:-0}
+              THUMBS_UP=${THUMBS_UP:-0}
+              echo "  Downloads: $DOWNLOADS | Likes: $THUMBS_UP"
+
+              CF_JSON="$CF_JSON{\"id\":\"$mod_id\",\"slug\":\"$SLUG\",\"name\":\"$mod_name\",\"game\":\"$game\",\"platform\":\"curseforge\",\"downloads\":$DOWNLOADS,\"thumbs_up\":$THUMBS_UP},"
+
+              # Download milestones
+              if [ "$DOWNLOADS" -gt 0 ] 2>/dev/null; then
+              LAST_DMS=$(echo "$STATE" | jq -r ".milestones[\"cf_dl_${mod_id}\"] // -1")
+              if [ "$LAST_DMS" = "-1" ]; then
+                SEED=0; for ms in "${MILESTONES[@]}"; do [ "$DOWNLOADS" -ge "$ms" ] && SEED=$ms; done
+                STATE=$(echo "$STATE" | jq ".milestones[\"cf_dl_${mod_id}\"] = $SEED")
+              else
+                for ms in "${MILESTONES[@]}"; do
+                  if [ "$DOWNLOADS" -ge "$ms" ] && [ "$LAST_DMS" -lt "$ms" ] && [ -n "$DISCORD_WEBHOOK_STATS" ]; then
+                    echo "MILESTONE: $mod_name $ms downloads on CurseForge"
+                    curl -s -H "Content-Type: application/json" \
+                      -d "{\"embeds\":[{\"title\":\"Milestone: $mod_name reached $ms downloads!\",\"color\":16744448,\"fields\":[{\"name\":\"Downloads\",\"value\":\"$DOWNLOADS\",\"inline\":true},{\"name\":\"Likes\",\"value\":\"$THUMBS_UP\",\"inline\":true}],\"url\":\"https://www.curseforge.com/minecraft/mc-mods/$SLUG\",\"footer\":{\"text\":\"CurseForge Milestone\"}}]}" \
+                      "$DISCORD_WEBHOOK_STATS"
+                    STATE=$(echo "$STATE" | jq ".milestones[\"cf_dl_${mod_id}\"] = $ms")
+                  fi
+                done
+              fi
+              fi
+
+              sleep 0.5
+            done
+          fi
+
+          CF_JSON="${CF_JSON%,}]"
+          echo "$CF_JSON" > /tmp/cf.json
+          echo "$STATE" > .monitor-state.json
+
       - name: Generate data.json for GitHub Pages
         run: |
           WS_JSON=$(cat /tmp/ws.json 2>/dev/null || echo '[]')
           NX_JSON=$(cat /tmp/nx.json 2>/dev/null || echo '[]')
           MR_JSON=$(cat /tmp/mr.json 2>/dev/null || echo '[]')
+          CF_JSON=$(cat /tmp/cf.json 2>/dev/null || echo '[]')
           NOW=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
 
           # Load existing history or start fresh
@@ -256,7 +332,7 @@ jobs:
           fi
 
           # Build current snapshot for history
-          SNAPSHOT="{\"t\":\"$NOW\",\"w\":$WS_JSON,\"n\":$NX_JSON,\"m\":$MR_JSON}"
+          SNAPSHOT="{\"t\":\"$NOW\",\"w\":$WS_JSON,\"n\":$NX_JSON,\"m\":$MR_JSON,\"c\":$CF_JSON}"
 
           # Append to history, keep last 180 entries (~1 day at 8min intervals)
           HISTORY=$(echo "$EXISTING_HISTORY" | jq -c --argjson snap "$SNAPSHOT" '. + [$snap] | .[-180:]')
@@ -267,6 +343,7 @@ jobs:
             "workshop": $WS_JSON,
             "nexus": $NX_JSON,
             "modrinth": $MR_JSON,
+            "curseforge": $CF_JSON,
             "history": $HISTORY
           }
           JSONEOF
@@ -284,19 +361,22 @@ jobs:
           WS_JSON=$(cat /tmp/ws.json 2>/dev/null || echo '[]')
           NX_JSON=$(cat /tmp/nx.json 2>/dev/null || echo '[]')
           MR_JSON=$(cat /tmp/mr.json 2>/dev/null || echo '[]')
+          CF_JSON=$(cat /tmp/cf.json 2>/dev/null || echo '[]')
 
           # Build embed fields from workshop data
           FIELDS=""
-          TOTAL_SUBS=0; TOTAL_FAVS=0; TOTAL_DL=0
+          TOTAL_SUBS=0; TOTAL_FAVS=0; TOTAL_DL=0; TOTAL_LIKES=0
 
           while IFS= read -r mod; do
             NAME=$(echo "$mod" | jq -r '.name')
             SUBS=$(echo "$mod" | jq -r '.subscribers')
             FAVS=$(echo "$mod" | jq -r '.favorites')
             VIEWS=$(echo "$mod" | jq -r '.views')
+            LIKES=$(echo "$mod" | jq -r '.likes // 0')
             TOTAL_SUBS=$((TOTAL_SUBS + SUBS))
             TOTAL_FAVS=$((TOTAL_FAVS + FAVS))
-            FIELDS="$FIELDS{\"name\":\"$NAME\",\"value\":\"Subs: **$SUBS** | Favs: **$FAVS** | Views: **$VIEWS**\",\"inline\":false},"
+            TOTAL_LIKES=$((TOTAL_LIKES + LIKES))
+            FIELDS="$FIELDS{\"name\":\"$NAME\",\"value\":\"Subs: **$SUBS** | Favs: **$FAVS** | Likes: **$LIKES** | Views: **$VIEWS**\",\"inline\":false},"
           done < <(echo "$WS_JSON" | jq -c '.[]')
 
           while IFS= read -r mod; do
@@ -315,9 +395,18 @@ jobs:
             FIELDS="$FIELDS{\"name\":\"$NAME (Modrinth)\",\"value\":\"Downloads: **$DL** | Followers: **$FOLLOWS**\",\"inline\":false},"
           done < <(echo "$MR_JSON" | jq -c '.[]')
 
+          while IFS= read -r mod; do
+            NAME=$(echo "$mod" | jq -r '.name')
+            DL=$(echo "$mod" | jq -r '.downloads')
+            CF_LIKES=$(echo "$mod" | jq -r '.thumbs_up // 0')
+            TOTAL_DL=$((TOTAL_DL + DL))
+            TOTAL_LIKES=$((TOTAL_LIKES + CF_LIKES))
+            FIELDS="$FIELDS{\"name\":\"$NAME (CurseForge)\",\"value\":\"Downloads: **$DL** | Likes: **$CF_LIKES**\",\"inline\":false},"
+          done < <(echo "$CF_JSON" | jq -c '.[]')
+
           FIELDS="${FIELDS%,}"
 
-          EMBED="{\"embeds\":[{\"title\":\"Zero's Mods - Live Stats\",\"description\":\"**Totals:** $TOTAL_SUBS subscribers | $TOTAL_FAVS favorites | $TOTAL_DL downloads\",\"color\":7090918,\"fields\":[$FIELDS],\"footer\":{\"text\":\"Updates every 8 min | $(date -u '+%Y-%m-%d %H:%M UTC')\"},\"url\":\"https://shikyo13.github.io/GameModding/stats/\"}]}"
+          EMBED="{\"embeds\":[{\"title\":\"Zero's Mods - Live Stats\",\"description\":\"**Totals:** $TOTAL_SUBS subscribers | $TOTAL_FAVS favorites | $TOTAL_LIKES likes | $TOTAL_DL downloads\",\"color\":7090918,\"fields\":[$FIELDS],\"footer\":{\"text\":\"Updates every 8 min | $(date -u '+%Y-%m-%d %H:%M UTC')\"},\"url\":\"https://shikyo13.github.io/GameModding/stats/\"}]}"
 
           STATS_MSG_ID=$(echo "$STATE" | jq -r '.stats_message_id // ""')
 
